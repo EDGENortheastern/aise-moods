@@ -3,6 +3,9 @@ use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
+    // Load variables from a local .env file if present.
+    dotenvy::dotenv().ok();
+
     // Allow the React frontend to call this API.
     // Permissive is fine for teaching; tighten to your real origins in production.
     let cors = CorsLayer::permissive();
