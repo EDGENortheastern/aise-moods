@@ -1,7 +1,10 @@
 import Register from './pages/Register'
+import { registerUser } from './api'
 
 function App() {
-  return <Register />
+  return (
+    <Register onSubmit={({ email, password }) => registerUser(email, password)} />
+  )
 }
 
 export default App

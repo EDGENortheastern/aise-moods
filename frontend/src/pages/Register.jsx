@@ -4,11 +4,18 @@ import './Register.css'
 function Register({ onSubmit }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [message, setMessage] = useState('')
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
-    if (onSubmit) {
-      onSubmit({ email, password })
+    setMessage('')
+    try {
+      if (onSubmit) {
+        await onSubmit({ email, password })
+      }
+      setMessage('Account created! You can now log in.')
+    } catch (error) {
+      setMessage(error.message)
     }
   }
 
@@ -39,6 +46,8 @@ function Register({ onSubmit }) {
 
           <button type="submit">Register</button>
         </form>
+
+        {message && <p className="auth-message">{message}</p>}
 
         <p className="auth-footer">
           Already have an account? <a href="#login">Log in</a>
