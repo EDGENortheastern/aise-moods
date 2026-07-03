@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './auth.css'
 
-function Register({ onSubmit }) {
+function Login({ onSubmit }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -13,7 +13,7 @@ function Register({ onSubmit }) {
       if (onSubmit) {
         await onSubmit({ email, password })
       }
-      setMessage('Account created! You can now log in.')
+      setMessage('Welcome back!')
     } catch (error) {
       setMessage(error.message)
     }
@@ -23,8 +23,8 @@ function Register({ onSubmit }) {
     <main className="auth">
       <div className="auth-card">
         <p className="auth-brand">aise-moods</p>
-        <h1>Create account</h1>
-        <p className="auth-subtitle">Track how you feel, one day at a time.</p>
+        <h1>Log in</h1>
+        <p className="auth-subtitle">Pick up where you left off.</p>
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="email">Email</label>
@@ -44,17 +44,17 @@ function Register({ onSubmit }) {
             onChange={(event) => setPassword(event.target.value)}
           />
 
-          <button type="submit">Register</button>
+          <button type="submit">Log in</button>
         </form>
 
         {message && <p className="auth-message">{message}</p>}
 
         <p className="auth-footer">
-          Already have an account? <a href="#login">Log in</a>
+          Need an account? <a href="#register">Register</a>
         </p>
       </div>
     </main>
   )
 }
 
-export default Register
+export default Login

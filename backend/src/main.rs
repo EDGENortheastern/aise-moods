@@ -8,7 +8,7 @@ use axum::{
 };
 use models::User;
 use mongodb::{bson::doc, Client, Database};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
 
 // Shared application state passed to route handlers.
@@ -49,6 +49,7 @@ async fn main() {
         .route("/", get(root))
         .route("/health", get(health))
         .route("/auth/register", post(register))
+        .route("/auth/login", post(login))
         .layer(cors)
         .with_state(state);
 
@@ -108,6 +109,52 @@ async fn register(
     users.insert_one(user).await.map_err(internal_error)?;
 
     Ok(StatusCode::CREATED)
+}
+
+// The JSON body the client sends to log in.
+#[derive(Deserialize)]
+struct LoginRequest {
+    email: String,
+    password: String,
+}
+
+// What we send back after a successful login.
+#[derive(Serialize)]
+struct LoginResponse {
+    email: String,
+}
+
+// POST /auth/login — check an email and password against a stored user.
+async fn login(
+    State(state): State<AppState>,
+    Json(payload): Json<LoginRequest>,
+) -> Result<Json<LoginResponse>, (StatusCode, String)> {
+    let users = state.db.collection::<User>("users");
+
+    // Look up the user by email.
+    let user = users
+        .find_one(doc! { "email": &payload.email })
+        .await
+        .map_err(internal_error)?;
+
+    // Use the same error whether the email is unknown or the password is
+    // wrong, so we don't reveal which emails are registered.
+    let invalid = || {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Invalid email or password".to_string(),
+        )
+    };
+    let user = user.ok_or_else(invalid)?;
+
+    // Compare the submitted password against the stored hash.
+    let matches =
+        bcrypt::verify(&payload.password, &user.password_hash).map_err(internal_error)?;
+    if !matches {
+        return Err(invalid());
+    }
+
+    Ok(Json(LoginResponse { email: user.email }))
 }
 
 // Turn any error into a 500 Internal Server Error response.
