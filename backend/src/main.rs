@@ -1,20 +1,23 @@
 mod models;
 
 use axum::{
-    extract::State,
-    http::StatusCode,
+    extract::{FromRequestParts, State},
+    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     routing::{get, post},
     Json, Router,
 };
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use models::User;
 use mongodb::{bson::doc, Client, Database};
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tower_http::cors::CorsLayer;
 
 // Shared application state passed to route handlers.
 #[derive(Clone)]
 struct AppState {
     db: Database,
+    jwt_secret: String,
 }
 
 #[tokio::main]
@@ -38,7 +41,10 @@ async fn main() {
         .expect("Failed to connect to MongoDB");
     println!("Connected to MongoDB database: {db_name}");
 
-    let state = AppState { db };
+    // Secret used to sign and verify login tokens.
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+
+    let state = AppState { db, jwt_secret };
 
     // Allow the React frontend to call this API.
     // Permissive is fine for teaching; tighten to your real origins in production.
@@ -50,6 +56,7 @@ async fn main() {
         .route("/health", get(health))
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
+        .route("/me", get(me))
         .layer(cors)
         .with_state(state);
 
@@ -118,10 +125,40 @@ struct LoginRequest {
     password: String,
 }
 
-// What we send back after a successful login.
+// What we send back after a successful login: a signed token plus the email.
 #[derive(Serialize)]
 struct LoginResponse {
+    token: String,
     email: String,
+}
+
+// The data we store inside a login token.
+#[derive(Debug, Serialize, Deserialize)]
+struct Claims {
+    // "Subject" — who the token belongs to. We use the user's email.
+    sub: String,
+    // Expiry as a Unix timestamp (seconds). Checked automatically on decode.
+    exp: usize,
+}
+
+// How long a login stays valid before the user must sign in again.
+const TOKEN_TTL_SECONDS: u64 = 60 * 60 * 24 * 7; // 7 days
+
+// Create a signed token for the given user.
+fn create_token(secret: &str, email: &str) -> Result<String, jsonwebtoken::errors::Error> {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock is before the Unix epoch")
+        .as_secs();
+    let claims = Claims {
+        sub: email.to_string(),
+        exp: (now + TOKEN_TTL_SECONDS) as usize,
+    };
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
 }
 
 // POST /auth/login — check an email and password against a stored user.
@@ -154,7 +191,61 @@ async fn login(
         return Err(invalid());
     }
 
-    Ok(Json(LoginResponse { email: user.email }))
+    // Issue a token so the client can prove who it is on later requests.
+    let token = create_token(&state.jwt_secret, &user.email).map_err(internal_error)?;
+    Ok(Json(LoginResponse {
+        token,
+        email: user.email,
+    }))
+}
+
+// An authenticated user, pulled from the `Authorization: Bearer <token>`
+// header. Add this as a handler argument to require a valid login.
+struct AuthUser {
+    email: String,
+}
+
+impl FromRequestParts<AppState> for AuthUser {
+    type Rejection = (StatusCode, String);
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let unauthorized =
+            |msg: &str| (StatusCode::UNAUTHORIZED, msg.to_string());
+
+        // Read the bearer token out of the Authorization header.
+        let token = parts
+            .headers
+            .get(AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .ok_or_else(|| unauthorized("Missing bearer token"))?;
+
+        // Verify the signature and expiry, then read the claims back out.
+        let data = decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
+            &Validation::default(),
+        )
+        .map_err(|_| unauthorized("Invalid or expired token"))?;
+
+        Ok(AuthUser {
+            email: data.claims.sub,
+        })
+    }
+}
+
+// What GET /me returns: the currently logged-in user.
+#[derive(Serialize)]
+struct MeResponse {
+    email: String,
+}
+
+// GET /me — identify the caller from their token. Requires a valid login.
+async fn me(auth: AuthUser) -> Json<MeResponse> {
+    Json(MeResponse { email: auth.email })
 }
 
 // Turn any error into a 500 Internal Server Error response.
