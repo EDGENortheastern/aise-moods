@@ -1,12 +1,7 @@
-import './App.css'
+import Register from './pages/Register'
 
 function App() {
-  return (
-    <main className="app">
-      <h1>aise-moods</h1>
-      <p>Track your daily mood.</p>
-    </main>
-  )
+  return <Register />
 }
 
 export default App
