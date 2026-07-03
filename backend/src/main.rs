@@ -1,9 +1,16 @@
 use axum::{routing::get, Router};
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
+    // Allow the React frontend to call this API.
+    // Permissive is fine for teaching; tighten to your real origins in production.
+    let cors = CorsLayer::permissive();
+
     // Build the app with a single health check route.
-    let app = Router::new().route("/health", get(health));
+    let app = Router::new()
+        .route("/health", get(health))
+        .layer(cors);
 
     // Use the PORT from the environment (Render sets this), else 3000 locally.
     // Bind 0.0.0.0 so the server is reachable when deployed.
