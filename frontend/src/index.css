@@ -25,11 +25,13 @@
   --blue-500: #0d3353;
 
   /* Semantic roles */
-  --primary: var(--blue-500);   /* darkest blue — text */
-  --secondary: var(--green-100); /* lightest green — background */
-
-  --color-text: var(--primary);
-  --color-bg: var(--secondary);
+  --color-bg: var(--blue-100);     /* pale blue — page background */
+  --color-text: var(--blue-500);   /* darkest blue — body & headings */
+  --color-muted: var(--blue-400);  /* medium blue — secondary text */
+  --accent: var(--orange-400);     /* dark orange — links/highlights */
+  --button-bg: var(--green-400);   /* green — buttons */
+  --button-text: #ffffff;
+  --card-bg: #ffffff;              /* white — inputs & cards */
 }
 
 * {
@@ -38,7 +40,7 @@
 
 body {
   margin: 0;
-  font-family: system-ui, sans-serif;
+  font-family: 'Lato', system-ui, sans-serif;
   color: var(--color-text);
   background: var(--color-bg);
 }
