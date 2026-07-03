@@ -1,3 +1,5 @@
+mod models;
+
 use axum::{routing::get, Router};
 use mongodb::{bson::doc, Client, Database};
 use tower_http::cors::CorsLayer;

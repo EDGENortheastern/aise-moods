@@ -22,6 +22,7 @@ dependencies = [
  "axum",
  "dotenvy",
  "mongodb",
+ "serde",
  "tokio",
  "tower-http",
 ]
