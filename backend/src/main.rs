@@ -1,13 +1,19 @@
 mod models;
 
-use axum::{routing::get, Router};
+use axum::{
+    extract::State,
+    http::StatusCode,
+    routing::{get, post},
+    Json, Router,
+};
+use models::User;
 use mongodb::{bson::doc, Client, Database};
+use serde::Deserialize;
 use tower_http::cors::CorsLayer;
 
 // Shared application state passed to route handlers.
 #[derive(Clone)]
 struct AppState {
-    #[allow(dead_code)]
     db: Database,
 }
 
@@ -42,6 +48,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(root))
         .route("/health", get(health))
+        .route("/auth/register", post(register))
         .layer(cors)
         .with_state(state);
 
@@ -64,4 +71,46 @@ async fn root() -> &'static str {
 // Returns a simple OK so we can check the server is alive.
 async fn health() -> &'static str {
     "OK"
+}
+
+// The JSON body the client sends to register.
+#[derive(Deserialize)]
+struct RegisterRequest {
+    email: String,
+    password: String,
+}
+
+// POST /auth/register — create a new user with a hashed password.
+async fn register(
+    State(state): State<AppState>,
+    Json(payload): Json<RegisterRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let users = state.db.collection::<User>("users");
+
+    // Reject if the email is already registered.
+    let existing = users
+        .find_one(doc! { "email": &payload.email })
+        .await
+        .map_err(internal_error)?;
+    if existing.is_some() {
+        return Err((StatusCode::CONFLICT, "Email already registered".to_string()));
+    }
+
+    // Hash the password — we never store the plain text.
+    let password_hash =
+        bcrypt::hash(&payload.password, bcrypt::DEFAULT_COST).map_err(internal_error)?;
+
+    let user = User {
+        id: None,
+        email: payload.email,
+        password_hash,
+    };
+    users.insert_one(user).await.map_err(internal_error)?;
+
+    Ok(StatusCode::CREATED)
+}
+
+// Turn any error into a 500 Internal Server Error response.
+fn internal_error<E: std::fmt::Display>(err: E) -> (StatusCode, String) {
+    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
 }
