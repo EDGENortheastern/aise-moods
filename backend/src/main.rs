@@ -5,12 +5,14 @@ async fn main() {
     // Build the app with a single health check route.
     let app = Router::new().route("/health", get(health));
 
-    // Start the server on port 3000.
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
+    // Use the PORT from the environment (Render sets this), else 3000 locally.
+    // Bind 0.0.0.0 so the server is reachable when deployed.
+    let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let addr = format!("0.0.0.0:{port}");
 
-    println!("Backend running on http://127.0.0.1:3000");
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+
+    println!("Backend running on http://{addr}");
     axum::serve(listener, app).await.unwrap();
 }
 
