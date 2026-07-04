@@ -70,3 +70,35 @@ export async function fetchCurrentUser() {
 
   return response.json()
 }
+
+// Load the logged-in user's moods, newest first.
+export async function fetchMoods() {
+  const response = await fetch(`${API_URL}/moods`, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  })
+
+  if (!response.ok) {
+    throw new Error('Could not load your moods')
+  }
+
+  return response.json()
+}
+
+// Log a mood for the logged-in user. Returns the saved entry.
+export async function createMood(mood, note) {
+  const response = await fetch(`${API_URL}/moods`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getToken()}`,
+    },
+    body: JSON.stringify({ mood, note }),
+  })
+
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || 'Could not save your mood')
+  }
+
+  return response.json()
+}

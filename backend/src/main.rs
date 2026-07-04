@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
-use models::User;
+use models::{Mood, User};
 use mongodb::{bson::doc, Client, Database};
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -57,6 +57,7 @@ async fn main() {
         .route("/auth/register", post(register))
         .route("/auth/login", post(login))
         .route("/me", get(me))
+        .route("/moods", post(create_mood).get(list_moods))
         .layer(cors)
         .with_state(state);
 
@@ -246,6 +247,104 @@ struct MeResponse {
 // GET /me — identify the caller from their token. Requires a valid login.
 async fn me(auth: AuthUser) -> Json<MeResponse> {
     Json(MeResponse { email: auth.email })
+}
+
+// The moods a user is allowed to log.
+const ALLOWED_MOODS: [&str; 5] = ["great", "good", "okay", "low", "awful"];
+
+// The JSON body for logging a mood.
+#[derive(Deserialize)]
+struct CreateMoodRequest {
+    mood: String,
+    // Optional — defaults to an empty note if the client omits it.
+    #[serde(default)]
+    note: String,
+}
+
+// A mood as sent back to the client (id as a plain hex string).
+#[derive(Serialize)]
+struct MoodResponse {
+    id: String,
+    mood: String,
+    note: String,
+    created_at: i64,
+}
+
+impl MoodResponse {
+    fn from_mood(mood: Mood) -> Self {
+        MoodResponse {
+            id: mood.id.map(|id| id.to_hex()).unwrap_or_default(),
+            mood: mood.mood,
+            note: mood.note,
+            created_at: mood.created_at,
+        }
+    }
+}
+
+// POST /moods — log a mood for the authenticated user.
+async fn create_mood(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(payload): Json<CreateMoodRequest>,
+) -> Result<(StatusCode, Json<MoodResponse>), (StatusCode, String)> {
+    // Only accept known moods so the collection stays tidy.
+    if !ALLOWED_MOODS.contains(&payload.mood.as_str()) {
+        return Err((StatusCode::BAD_REQUEST, "Unknown mood".to_string()));
+    }
+
+    let created_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock is before the Unix epoch")
+        .as_millis() as i64;
+
+    let mood = Mood {
+        id: None,
+        user_email: auth.email,
+        mood: payload.mood,
+        note: payload.note,
+        created_at,
+    };
+
+    let moods = state.db.collection::<Mood>("moods");
+    let result = moods.insert_one(&mood).await.map_err(internal_error)?;
+
+    // Echo the saved entry back, including its new id.
+    let id = result
+        .inserted_id
+        .as_object_id()
+        .map(|id| id.to_hex())
+        .unwrap_or_default();
+    Ok((
+        StatusCode::CREATED,
+        Json(MoodResponse {
+            id,
+            mood: mood.mood,
+            note: mood.note,
+            created_at: mood.created_at,
+        }),
+    ))
+}
+
+// GET /moods — list the authenticated user's moods, newest first.
+async fn list_moods(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<Vec<MoodResponse>>, (StatusCode, String)> {
+    let moods = state.db.collection::<Mood>("moods");
+
+    let mut cursor = moods
+        .find(doc! { "user_email": &auth.email })
+        .sort(doc! { "created_at": -1 })
+        .await
+        .map_err(internal_error)?;
+
+    let mut out = Vec::new();
+    while cursor.advance().await.map_err(internal_error)? {
+        let mood = cursor.deserialize_current().map_err(internal_error)?;
+        out.push(MoodResponse::from_mood(mood));
+    }
+
+    Ok(Json(out))
 }
 
 // Turn any error into a 500 Internal Server Error response.

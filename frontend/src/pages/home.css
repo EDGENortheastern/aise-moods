@@ -1,0 +1,221 @@
+/* The mood dashboard shown once you're logged in. */
+.home {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+  background: color-mix(in srgb, var(--yellow-100) 55%, white);
+}
+
+.home-card {
+  width: 520px;
+  box-sizing: border-box;
+  height: fit-content;
+  background: var(--card-bg);
+  border: 3px solid var(--blue-500);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 10px 30px rgba(13, 51, 83, 0.12);
+}
+
+.home-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.home-brand {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.home-email {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.home-logout {
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--blue-200);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.home-logout:hover {
+  background: var(--blue-100);
+}
+
+.home-card h1 {
+  margin: 0 0 20px;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.home-card h2 {
+  margin: 32px 0 16px;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.home-card form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mood picker */
+.mood-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.mood-option {
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--color-text);
+  background: var(--card-bg);
+  border: 2px solid var(--blue-200);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.mood-option.is-selected {
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* Each mood gets its own colour from the palette. */
+.mood-great.is-selected {
+  background: var(--green-300);
+}
+.mood-good.is-selected {
+  background: var(--green-200);
+  color: var(--color-text);
+}
+.mood-okay.is-selected {
+  background: var(--yellow-300);
+  color: var(--color-text);
+}
+.mood-low.is-selected {
+  background: var(--orange-300);
+}
+.mood-awful.is-selected {
+  background: var(--orange-500);
+}
+
+.home-card label {
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.home-card textarea {
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--card-bg);
+  border: 1px solid var(--blue-200);
+  border-radius: 8px;
+  resize: vertical;
+}
+
+.home-card textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mood-submit {
+  align-self: flex-start;
+  padding: 12px 24px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--button-text);
+  background: var(--button-bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mood-submit:hover {
+  background: var(--green-500);
+}
+
+.home-message {
+  margin: 16px 0 0;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.home-empty {
+  color: var(--color-muted);
+}
+
+/* Mood history */
+.mood-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mood-item {
+  padding: 14px 16px;
+  border: 1px solid var(--blue-200);
+  border-radius: 12px;
+}
+
+.mood-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: #ffffff;
+  border-radius: 999px;
+}
+
+/* Tag colours mirror the picker. */
+.mood-tag.mood-great {
+  background: var(--green-300);
+}
+.mood-tag.mood-good {
+  background: var(--green-200);
+  color: var(--color-text);
+}
+.mood-tag.mood-okay {
+  background: var(--yellow-300);
+  color: var(--color-text);
+}
+.mood-tag.mood-low {
+  background: var(--orange-300);
+}
+.mood-tag.mood-awful {
+  background: var(--orange-500);
+}
+
+.mood-note {
+  margin: 10px 0 0;
+  color: var(--color-text);
+}
+
+.mood-time {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
