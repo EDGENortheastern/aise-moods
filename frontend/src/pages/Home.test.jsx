@@ -10,6 +10,7 @@ vi.mock('../api', () => ({
 }))
 
 beforeEach(() => {
+  vi.clearAllMocks()
   fetchMoods.mockResolvedValue([])
   createMood.mockResolvedValue({ id: '1', mood: 'good', note: '', created_at: 0 })
 })
