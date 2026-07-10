@@ -82,6 +82,54 @@ async fn health() -> &'static str {
     "OK"
 }
 
+// Validation errors that can occur during registration.
+#[derive(Debug, PartialEq)]
+enum ValidationError {
+    PasswordTooShort,
+    PasswordTooLong,
+    EmptyEmail,
+    EmptyPassword,
+    InvalidEmailFormat,
+}
+
+impl ValidationError {
+    fn message(&self) -> &str {
+        match self {
+            ValidationError::PasswordTooShort => "Password must be at least 8 characters",
+            ValidationError::PasswordTooLong => "Password must not exceed 128 characters",
+            ValidationError::EmptyEmail => "Email cannot be empty",
+            ValidationError::EmptyPassword => "Password cannot be empty",
+            ValidationError::InvalidEmailFormat => "Email must be a valid format",
+        }
+    }
+}
+
+// Validate registration input.
+fn validate_registration(email: &str, password: &str) -> Result<(), ValidationError> {
+    // Check for empty fields first
+    if email.trim().is_empty() {
+        return Err(ValidationError::EmptyEmail);
+    }
+    if password.is_empty() {
+        return Err(ValidationError::EmptyPassword);
+    }
+
+    // Validate email format (basic check)
+    if !email.contains('@') || !email.contains('.') || email.starts_with('@') || email.ends_with('@') {
+        return Err(ValidationError::InvalidEmailFormat);
+    }
+
+    // Check password length
+    if password.len() < 8 {
+        return Err(ValidationError::PasswordTooShort);
+    }
+    if password.len() > 128 {
+        return Err(ValidationError::PasswordTooLong);
+    }
+
+    Ok(())
+}
+
 // The JSON body the client sends to register.
 #[derive(Deserialize)]
 struct RegisterRequest {
@@ -94,6 +142,11 @@ async fn register(
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
 ) -> Result<StatusCode, (StatusCode, String)> {
+    // Validate input first
+    if let Err(e) = validate_registration(&payload.email, &payload.password) {
+        return Err((StatusCode::BAD_REQUEST, e.message().to_string()));
+    }
+
     let users = state.db.collection::<User>("users");
 
     // Reject if the email is already registered.
@@ -350,4 +403,104 @@ async fn list_moods(
 // Turn any error into a 500 Internal Server Error response.
 fn internal_error<E: std::fmt::Display>(err: E) -> (StatusCode, String) {
     (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_registration() {
+        let result = validate_registration("user@example.com", "password123");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_empty_email() {
+        let result = validate_registration("", "password123");
+        assert_eq!(result, Err(ValidationError::EmptyEmail));
+    }
+
+    #[test]
+    fn test_whitespace_only_email() {
+        let result = validate_registration("   ", "password123");
+        assert_eq!(result, Err(ValidationError::EmptyEmail));
+    }
+
+    #[test]
+    fn test_empty_password() {
+        let result = validate_registration("user@example.com", "");
+        assert_eq!(result, Err(ValidationError::EmptyPassword));
+    }
+
+    #[test]
+    fn test_password_too_short() {
+        let result = validate_registration("user@example.com", "pass");
+        assert_eq!(result, Err(ValidationError::PasswordTooShort));
+    }
+
+    #[test]
+    fn test_password_minimum_length() {
+        let result = validate_registration("user@example.com", "12345678");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_password_too_long() {
+        let long_password = "a".repeat(129);
+        let result = validate_registration("user@example.com", &long_password);
+        assert_eq!(result, Err(ValidationError::PasswordTooLong));
+    }
+
+    #[test]
+    fn test_password_maximum_length() {
+        let max_password = "a".repeat(128);
+        let result = validate_registration("user@example.com", &max_password);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_invalid_email_no_at() {
+        let result = validate_registration("userexample.com", "password123");
+        assert_eq!(result, Err(ValidationError::InvalidEmailFormat));
+    }
+
+    #[test]
+    fn test_invalid_email_no_domain() {
+        let result = validate_registration("user@", "password123");
+        assert_eq!(result, Err(ValidationError::InvalidEmailFormat));
+    }
+
+    #[test]
+    fn test_invalid_email_starts_with_at() {
+        let result = validate_registration("@example.com", "password123");
+        assert_eq!(result, Err(ValidationError::InvalidEmailFormat));
+    }
+
+    #[test]
+    fn test_invalid_email_no_dot() {
+        let result = validate_registration("user@example", "password123");
+        assert_eq!(result, Err(ValidationError::InvalidEmailFormat));
+    }
+
+    #[test]
+    fn test_validation_error_messages() {
+        assert_eq!(
+            ValidationError::PasswordTooShort.message(),
+            "Password must be at least 8 characters"
+        );
+        assert_eq!(
+            ValidationError::PasswordTooLong.message(),
+            "Password must not exceed 128 characters"
+        );
+        assert_eq!(ValidationError::EmptyEmail.message(), "Email cannot be empty");
+        assert_eq!(
+            ValidationError::EmptyPassword.message(),
+            "Password cannot be empty"
+        );
+        assert_eq!(
+            ValidationError::InvalidEmailFormat.message(),
+            "Email must be a valid format"
+        );
+    }
 }
