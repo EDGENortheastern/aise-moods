@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { validateRegistration } from '../validation'
 import './auth.css'
 
 function Register({ onSubmit }) {
@@ -9,6 +10,14 @@ function Register({ onSubmit }) {
   async function handleSubmit(event) {
     event.preventDefault()
     setMessage('')
+
+    // Validate input before submitting
+    const validationError = validateRegistration(email, password)
+    if (validationError) {
+      setMessage(validationError)
+      return
+    }
+
     try {
       if (onSubmit) {
         await onSubmit({ email, password })
