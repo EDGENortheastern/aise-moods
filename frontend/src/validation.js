@@ -5,7 +5,6 @@
  * @returns {string|null} - Error message or null if valid
  */
 export function validateRegistration(email, password) {
-  // Check for empty fields first
   if (email.trim() === '') {
     return 'Email cannot be empty'
   }
